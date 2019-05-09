@@ -24,8 +24,8 @@ def draw_for_person(person_record, picture_size, ts):
   config = Path(file_name)
   if config.is_file():
     # Store configuration file values
-    file_name = 'results_svg/'+email + '_'+str(ts)+ '.svg'
-    png_file = 'results_png/'+email + '_'+str(ts) + '.png'
+    file_name = '../results_svg/'+email + '_'+str(ts)+ '.svg'
+    png_file = '../results_png/'+email + '_'+str(ts) + '.png'
     #print("File exists!!!!")
     #print(file_name)
   dwg = svgwrite.Drawing(file_name, profile='tiny', size = (picture_size[0], picture_size[1]))
