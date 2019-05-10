@@ -8,55 +8,70 @@ import math
 from svgwrite import cm, mm
 from xlrd import open_workbook
 
-
+#support function to calculate cartesian coordinates based on polar coordinates 
 def polarToCartesian(centerX, centerY, radius, angleInDegrees):
   angleInRadians = math.radians(angleInDegrees)
   return centerX + (radius * math.cos(angleInRadians)), centerY + (radius * math.sin(angleInRadians));
 
-
+#function draws a daisy for one specified person from the list and saves it to the drive
 def draw_for_person(person_record, picture_size, ts):
   name = person_record[0]
-  email = person_record[1]
   print(name)
+  email = person_record[1]
   print(email)
   file_name = '../results_svg/'+email + '.svg'
   png_file = '../results_png/'+email + '.png'
   config = Path(file_name)
+  #checking whether the file with the same email already exists. If yes, saving with a different name
   if config.is_file():
     # Store configuration file values
     file_name = '../results_svg/'+email + '_'+str(ts)+ '.svg'
     png_file = '../results_png/'+email + '_'+str(ts) + '.png'
-    #print("File exists!!!!")
-    #print(file_name)
+
+  #setting up the diagram as an SVG image
   dwg = svgwrite.Drawing(file_name, profile='tiny', size = (picture_size[0], picture_size[1]))
   dwg.add(dwg.text(name, insert=(picture_size[0]*0.5,80), font_family='Helvetica',font_size="30px", text_anchor='middle'))
   dwg.add(dwg.text("PM Daisy", insert=(picture_size[0]*0.5,50), font_family='Helvetica',font_size="15px", text_anchor='middle'))
+
+  #determine the color of the daisy based on the response in the questionnaire
   color_free = str(person_record[3]).lower()
   if color_free in matching_colors.keys():
     colors = color_pallettes.get(matching_colors.get(color_free))
   else:
     colors = color_pallettes.get('Default')
+
+  #draw daisy with determines specs
   draw_daisy(dwg,center_x,center_y, picture_radius, leaf_width, n_leafs, colors, person_record[2])
-  # write svg file to disk
   
+  # write SVG file to disk
   dwg.save()
+  # write PNG file to disk
   drawing = svg2rlg(file_name)
   renderPM.drawToFile(drawing, png_file, fmt="PNG")
-  
+
+
+# Place a title to the diagram
 def put_title(dwg, text, center_x, center_y, radius, angle, x_shift, y_shift, anchor):
   start_point = polarToCartesian(center_x, center_y, radius, angle)
   dwg.add(dwg.text(text, insert=(start_point[0]+x_shift,start_point[1]+y_shift),text_anchor=anchor,font_family='Helvetica', font_size="14px"))
-  
+
+# Draw a daisy inside SVG
 def draw_daisy(dwg, center_x, center_y, dwg_radius, sector_w, n_leafs, colors, person_specs):
+
+  # radius parameters for different answer options from questionnaire
   radius_large = dwg_radius  - 10
   radius_mid = radius_large - 50
   radius_small = radius_mid - 50
   line_width = 1
   intersector_w = (360 - n_leafs*sector_w)/n_leafs;
+
+  #draw leaf by leaf
   for i in range(0,n_leafs):
+    #get encoded responses of the person
     specs = person_specs.get(titles[i][0])
     start_angle = -90 + i*(sector_w+intersector_w)
     end_angle = -90+(i+1)*sector_w+i*intersector_w
+    #positioning the leaf label
     x_shift = 10
     if titles[i][2] == 'end':
       x_shift = -0
@@ -66,15 +81,21 @@ def draw_daisy(dwg, center_x, center_y, dwg_radius, sector_w, n_leafs, colors, p
     if ((i > n_leafs/2-3) and (i < n_leafs/2+2)):
       y_shift = 15
     #['start', 'end', 'middle']
+    #placing the leaf label
     put_title(dwg, titles[i][0], center_x, center_y, radius_large+10, (start_angle + end_angle)*0.5, x_shift, y_shift, titles[i][2])
+    #drawing the contour
     draw_leaf(dwg, center_x, center_y, radius_large, start_angle, end_angle, colors[2], "none", line_width)
+    #drawing the outer filling
     if specs[2] > 0:
       draw_leaf(dwg, center_x, center_y, radius_large, start_angle, end_angle, colors[0], colors[0], line_width)
+    #drawing the middle filling
     if specs[1] > 0:
       draw_leaf(dwg, center_x, center_y, radius_mid, start_angle, end_angle, colors[1], colors[1], line_width)
+    #drawing the inner filling
     if specs[0] > 0:
       draw_leaf(dwg, center_x, center_y, radius_small, start_angle, end_angle, colors[2], colors[2], line_width)
 
+#Draw a single leaf of the daisy
 def draw_leaf(dwg, center_x, center_y, radius, start_angle, end_angle, stroke_color, fill_color,line_width):
   start = polarToCartesian(center_x, center_y, radius, start_angle)
   end = polarToCartesian(center_x, center_y, radius, end_angle)
@@ -102,7 +123,7 @@ color_pallettes.update({'Default':["#E193E4","#B354B6","#843283"]})
 
 
 
-
+#open mapping table of colors (it is required due to changes to the excel file). 
 book = open_workbook('../PM Daisy (Responses).xlsx')
 sheet = book.sheet_by_index(0)
 
@@ -113,6 +134,7 @@ matching_colors = dict()
 for row_index in range(1,matching_sheet.nrows):
   matching_colors.update({matching_sheet.cell(row_index,0).value:matching_sheet.cell(row_index,1).value})
 
+#Encoding answers from Google spreadsheet
 answer_options = ['I do it myself','I have a team or team member','I use resources external to the product']
 titles = [["ENG",14,'start'],["UX",15,'start'], ["DATA ANALYTICS",16,'start'], ["PEOPLE OPS",21,'start'], ["PROGRAM MGMT",17,'start'], ["MARKETING",18,'end'], ["BUSINESS",20,'end'] , ["PARTNERSHIPS",19,'end'], ["RESEARCH",2,'end'], ["PM ARTIFACTS",13,'end']];
 columns = [0,1,12,13,14,15,16,17,18,19,20,21,22,24,25]
@@ -122,6 +144,7 @@ for i in columns:
 
 PM_dict = dict()
 
+#iterating from the first person skipping header to the last person in the spreadsheet
 for row_index in range(1,sheet.nrows):
 #for row_index in range(2,3):
 #for col_index in range(sheet.ncols):  
@@ -143,6 +166,7 @@ for row_index in range(1,sheet.nrows):
   PM_dict.update({ts: [name, email,skills_dict,color]})
 
 
+#iterating through the distionary with people records and drawing daisies for them
 for item in PM_dict.keys():
   dims = 330
   person_record = PM_dict.get(item)
